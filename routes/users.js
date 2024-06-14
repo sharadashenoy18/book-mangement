@@ -1,18 +1,16 @@
 const express = require("express");
-// const { append } = require("express/lib/response");
 const { users } = require("../data/users.json");
 
 const router = express.Router();
-
 /**
- * Route: /users
+ * Route: /
  * Method: GET
- * Description: Get all the users
+ * Description: Get all users
  * Access: Public
- * Parmanters: none
+ * Parameters: None
  */
 
-// http://localhost:8081/users/users
+//localhost:8081/users
 router.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -21,47 +19,50 @@ router.get("/", (req, res) => {
 });
 
 /**
- * Route: /users/:id
- * /users/2
+ * Route: /:id
  * Method: GET
  * Description: Get single user by their id
  * Access: Public
- * Parmanters: id
+ * Parameters: Id
  */
 router.get("/:id", (req, res) => {
+  // const  id  = req.params.id;
   const { id } = req.params;
+  console.log(req.params);
   const user = users.find((each) => each.id === id);
   if (!user) {
-    res.status(404).json({
+    return res.status(404).json({
       success: false,
-      message: "User Not Found",
-    });
-  } else {
-    res.status(200).json({
-      success: true,
-      data: user,
+      message: "User Doesn't Exist !!",
     });
   }
+  return res.status(200).json({
+    success: true,
+    message: "User Found",
+    data: user,
+  });
 });
 
 /**
- * Route: /users
+ * Route: /
  * Method: POST
- * Description: Create a new user
+ * Description: Creating a new user
  * Access: Public
- * Parmanters: none
+ * Parameters: None
  */
 router.post("/", (req, res) => {
   const { id, name, surname, email, subscriptionType, subscriptionDate } =
     req.body;
+
   const user = users.find((each) => each.id === id);
 
   if (user) {
     return res.status(404).json({
       success: false,
-      message: "User alreadry exist",
+      message: "User With The ID Exists",
     });
   }
+
   users.push({
     id,
     name,
@@ -70,28 +71,33 @@ router.post("/", (req, res) => {
     subscriptionType,
     subscriptionDate,
   });
+
   return res.status(201).json({
     success: true,
+    message: "User Added Succesfully",
     data: users,
   });
 });
 
 /**
- * Route: /users/:id
+ * Route: /:id
  * Method: PUT
- * Description: Updating a user data
+ * Description: Updating a user by their id
  * Access: Public
- * Parmanters: id
+ * Parameters: ID
  */
 router.put("/:id", (req, res) => {
   const { id } = req.params;
   const { data } = req.body;
+
   const user = users.find((each) => each.id === id);
-
-  if (!user)
-    return res.status(404).json({ success: false, message: "User Not Found" });
-
-  const UpdatedUser = users.map((each) => {
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User Doesn't Exist !!",
+    });
+  }
+  const updateUserData = users.map((each) => {
     if (each.id === id) {
       return {
         ...each,
@@ -102,48 +108,58 @@ router.put("/:id", (req, res) => {
   });
   return res.status(200).json({
     success: true,
-    data: UpdatedUser,
+    message: "User Updated !!",
+    data: updateUserData,
   });
 });
 
 /**
- * Route: /users/:id
+ * Route: /:id
  * Method: DELETE
  * Description: Deleting a user by their id
  * Access: Public
- * Parmanters: id
+ * Parameters: ID
  */
 router.delete("/:id", (req, res) => {
+  const { id } = req.params;
+  const user = users.find((each) => each.id === id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User Doesn't Exist !!",
+    });
+  }
+  const index = users.indexOf(user);
+  users.splice(index, 1);
+
+  return res
+    .status(200)
+    .json({ success: true, message: "Deleted User..", data: users });
+});
+
+/**
+ * Route: /users/subscription-details/:id
+ * Method: GET
+ * Description: Get all user Subscription Details
+ * Access: Public
+ * Parameters: ID
+ */
+router.get("/subscription-details/:id", (req, res) => {
   const { id } = req.params;
   const user = users.find((each) => each.id === id);
 
   if (!user) {
     return res.status(404).json({
       success: false,
-      message: "User to be deleted is not found",
+      message: "User With The ID Didnt Exist",
     });
   }
-  const index = users.indexOf(user);
-  users.splice(index, 1);
-
-  return res.status(200).json({ success: true, data: users });
-});
-
-router.get("/subscription-details/:id", (req, res) => {
-  const { id } = req.params;
-
-  const user = users.find((each) => each.id === id);
-
-  if (!user)
-    return res.status(404).json({ success: false, message: "User not found" });
 
   const getDateInDays = (data = "") => {
     let date;
     if (data === "") {
-      // current data
       date = new Date();
     } else {
-      // getting date on basics of variable
       date = new Date(data);
     }
     let days = Math.floor(date / (1000 * 60 * 60 * 24));
@@ -160,16 +176,21 @@ router.get("/subscription-details/:id", (req, res) => {
     }
     return date;
   };
-  // subscription calc here
-  // Jan 1, 1970
+
+  // Jan 1 1970 UTC
   let returnDate = getDateInDays(user.returnDate);
   let currentDate = getDateInDays();
   let subscriptionDate = getDateInDays(user.subscriptionDate);
   let subscriptionExpiration = subscriptionType(subscriptionDate);
 
+  // console.log("returnDate ", returnDate);
+  //   console.log("currentDate ", currentDate);
+  //     console.log("subscriptionDate ", subscriptionDate);
+  //       console.log("subscriptionExpiration ", subscriptionExpiration);
+
   const data = {
     ...user,
-    subscriptionExpired: subscriptionExpiration < currentDate,
+    isSubscriptionExpired: subscriptionExpiration < currentDate,
     daysLeftForExpiration:
       subscriptionExpiration <= currentDate
         ? 0
@@ -177,12 +198,15 @@ router.get("/subscription-details/:id", (req, res) => {
     fine:
       returnDate < currentDate
         ? subscriptionExpiration <= currentDate
-          ? 200
-          : 100
+          ? 100
+          : 50
         : 0,
   };
-  return res.status(200).json({ success: true, data });
+  return res.status(200).json({
+    success: true,
+    message: "Subscription detail for the user is: ",
+    data,
+  });
 });
 
-// deafult export
 module.exports = router;
